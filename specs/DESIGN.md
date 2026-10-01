@@ -25,12 +25,12 @@ Shows:
 - App title "My Vocabulary"
 - "Create new deck" button
 - Filter tabs: All / Due for review / Mastered
-- List of deck cards with title, description, card count, mastery %
+- List of deck cards with title, card count, mastery %
 
 ### 2. Deck Detail
 
 Shows:
-- Deck title and description
+- Deck title
 - Edit and Delete buttons
 - Statistics: Total, Mastered, Learning, New, Accuracy
 - "Add card" button
@@ -64,6 +64,25 @@ Shows:
 - User opens a deck to see details
 - User edits or deletes a deck
 - User starts a review session (future)
+
+## Tech Stack
+
+- React + Vite
+- CSS
+- PostgreSQL (Supabase)
+- React Router
+
+## Database
+
+Data is stored in PostgreSQL using the schema defined in `beepoly.sql`. Relevant tables:
+
+| Table | Purpose |
+|---|---|
+| `bo_the_tu_vung` | Vocabulary deck |
+| `the_tu_vung` | Vocabulary card |
+| `lich_su_on_the` | Spaced repetition review history (SM-2) |
+
+Note: card status (new / learning / mastered) is NOT a stored column — it is derived from `lich_su_on_the`.
 
 ## Specs
 

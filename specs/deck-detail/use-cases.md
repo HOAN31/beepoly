@@ -13,10 +13,12 @@ Người học muốn xem thông tin chi tiết của một deck.
 ### Main Flow
 
 1. Người học mở Deck Detail (từ Deck List).
-2. Hệ thống hiển thị title và description của deck.
-3. Hệ thống hiển thị thống kê: Total, Mastered, Learning, New, Accuracy.
-4. Hệ thống hiển thị danh sách vocabulary trong deck.
-5. Mỗi vocabulary card hiển thị: word, meaning, status.
+2. Hệ thống truy vấn `bo_the_tu_vung` lấy title (`tieu_de`) của deck.
+3. Hệ thống truy vấn `the_tu_vung` lấy danh sách card của deck.
+4. Hệ thống truy vấn `lich_su_on_the` tính toán status cho từng card.
+5. Hệ thống hiển thị thống kê: Total, Mastered, Learning, New, Accuracy.
+6. Hệ thống hiển thị danh sách vocabulary trong deck.
+7. Mỗi vocabulary card hiển thị: word (`tu`), meaning (`nghia`), status (derived).
 
 ### Alternative Flow
 
@@ -116,9 +118,9 @@ Người học muốn chỉnh sửa thông tin deck.
 
 1. Người học mở Deck Detail.
 2. Người học bấm Edit.
-3. Hệ thống hiển thị form với dữ liệu hiện tại.
+3. Hệ thống hiển thị form với `tieu_de` hiện tại.
 4. Người học chỉnh sửa và lưu.
-5. Hệ thống cập nhật deck.
+5. Hệ thống cập nhật `bo_the_tu_vung.tieu_de`.
 
 ### Related Acceptance Criteria
 
@@ -142,7 +144,7 @@ Người học muốn xóa một deck.
 2. Người học bấm Delete.
 3. Hệ thống hiển thị xác nhận.
 4. Người học xác nhận.
-5. Hệ thống xóa deck và các card liên quan.
+5. Hệ thống xóa deck khỏi `bo_the_tu_vung`, và xóa các card liên quan trong `the_tu_vung`.
 6. Hệ thống chuyển về Deck List.
 
 ### Related Acceptance Criteria

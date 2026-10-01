@@ -17,8 +17,9 @@ Người học muốn xem tất cả các vocabulary deck đã tạo.
 3. Hệ thống hiển thị tiêu đề "My Vocabulary".
 4. Hệ thống hiển thị nút "+ Create new deck".
 5. Hệ thống hiển thị bộ lọc: All, Due for review, Mastered.
-6. Hệ thống hiển thị danh sách deck card.
-7. Mỗi deck card hiển thị: title, description, card count, mastery %, nút Open Deck.
+6. Hệ thống truy vấn `bo_the_tu_vung` lấy các deck của người dùng hiện tại.
+7. Hệ thống hiển thị danh sách deck card.
+8. Mỗi deck card hiển thị: title (`tieu_de`), card count, mastery %, nút Open Deck.
 
 ### Alternative Flow
 
@@ -46,9 +47,15 @@ Người học muốn lọc danh sách deck theo trạng thái.
 2. Người học chọn filter: All / Due for review / Mastered.
 3. Hệ thống cập nhật danh sách deck hiển thị theo filter đã chọn.
 
+### Filter Logic
+
+- **All**: hiển thị toàn bộ deck của người dùng.
+- **Due for review**: chỉ hiển thị deck có ít nhất 1 card đến hạn ôn tập (card chưa có `lich_su_on_the`, hoặc `lan_on_tiep_theo <= now()`).
+- **Mastered**: chỉ hiển thị deck có 100% card đã mastered (tất cả card đều có `lich_su_on_the.khoang_cach_ngay > 21`).
+
 ### Alternative Flow
 
-Nếu filter "Due for review" không có deck nào khớp, hiển thị empty state tương ứng.
+Nếu filter không có deck nào khớp, hiển thị empty state tương ứng.
 
 ### Related Acceptance Criteria
 

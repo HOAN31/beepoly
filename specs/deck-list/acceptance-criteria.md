@@ -6,8 +6,9 @@
 - [ ] App shows "+ Create new deck" button.
 - [ ] Filter bar shows All, Due for review, Mastered.
 - [ ] Default filter is All.
-- [ ] Each deck card shows title, description, card count, mastery %.
+- [ ] Each deck card shows title (`tieu_de`), card count, mastery %.
 - [ ] Each deck card has "Open Deck" button.
+- [ ] Deck card does NOT show a description (field does not exist in `bo_the_tu_vung`).
 - [ ] Clicking filter updates the deck list.
 
 ## Navigation
@@ -20,8 +21,8 @@
 
 ## Persistence
 
-- [ ] Decks and cards are saved to localStorage.
-- [ ] Data remains after page reload.
+- [ ] Deck and card data is read from PostgreSQL (`bo_the_tu_vung`, `the_tu_vung`, `lich_su_on_the`).
+- [ ] Data remains after page reload (persisted in database, not localStorage).
 
 ## UI
 

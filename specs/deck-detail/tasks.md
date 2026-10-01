@@ -10,41 +10,51 @@
 Acceptance check:
 - App shows clear layout for Deck Detail screen.
 
-## Task 2: Build DeckHeader
+## Task 2: Set up Supabase and seed sample data
 
-- Show deck title and description
+- Connect Supabase client to the beepoly Postgres database
+- Seed sample rows into `bo_the_tu_vung`, `the_tu_vung`, `lich_su_on_the`
+- Use `lich_su_on_the.khoang_cach_ngay` values that produce new / learning / mastered statuses
+
+Acceptance check:
+- Sample deck, cards, and review logs exist in the database.
+
+## Task 3: Build DeckHeader
+
+- Show deck title (`tieu_de`)
 - Show Edit and Delete buttons
 - Show Back button
 
 Acceptance check:
 - Header shows deck info and all buttons.
 
-## Task 3: Build DeckStatistics
+## Task 4: Build DeckStatistics
 
 - Show Total, Mastered, Learning, New, Accuracy
-- Calculate values from card data
+- Calculate values from `the_tu_vung` + `lich_su_on_the`
 
 Acceptance check:
 - Statistics match the deck's card data.
 - mastered + learning + new = total.
 
-## Task 4: Build VocabularyCard + StatusBadge
+## Task 5: Build VocabularyCard + StatusBadge
 
-- Show word and meaning
-- Show status badge (New / Learning / Mastered)
+- Show word (`tu`) and meaning (`nghia`)
+- Show status badge derived from `lich_su_on_the` (New / Learning / Mastered)
 
 Acceptance check:
-- Each card shows correct word, meaning, and status.
+- Each card shows correct word, meaning, and derived status.
 
-## Task 5: Build VocabularyList
+## Task 6: Build VocabularyList
 
 - Render list of VocabularyCard
+- Derive status for each card from `lich_su_on_the`
 - Handle empty state when no cards exist
 
 Acceptance check:
-- All cards in the deck appear in the list.
+- All cards in the deck appear in the list with correct status.
 
-## Task 6: Add UI action buttons
+## Task 7: Add UI action buttons
 
 - Add "+ Add card" button
 - Add "Start Review" button
@@ -53,23 +63,15 @@ Acceptance check:
 Acceptance check:
 - Buttons are visible and clickable.
 
-## Task 7: Add Edit/Delete deck actions
+## Task 8: Add Edit/Delete deck actions
 
-- Wire Edit button to open edit form (or placeholder)
-- Wire Delete button to show confirmation and delete deck
+- Wire Edit button to update `bo_the_tu_vung.tieu_de`
+- Wire Delete button to show confirmation, then delete from `bo_the_tu_vung` + `the_tu_vung`
 - Navigate back to Deck List after delete
 
 Acceptance check:
-- Edit button is clickable.
-- Delete shows confirmation and removes deck on confirm.
-
-## Task 8: Add localStorage persistence
-
-- Load deck and cards from localStorage
-- Save changes after edit/delete
-
-Acceptance check:
-- Data remains after page reload.
+- Edit saves new title to the database.
+- Delete shows confirmation and removes deck + cards from the database.
 
 ## Task 9: Final acceptance test
 

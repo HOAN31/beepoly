@@ -9,14 +9,14 @@
 Acceptance check:
 - App shows clear layout for Deck List screen.
 
-## Task 2: Create sample data
+## Task 2: Set up Supabase and seed sample data
 
-- Define sample decks
-- Define sample cards linked to decks
-- Use status values: new, learning, mastered
+- Connect Supabase client to the beepoly Postgres database
+- Seed sample rows into `bo_the_tu_vung`, `the_tu_vung`, `lich_su_on_the`
+- Use `lich_su_on_the.khoang_cach_ngay` values that produce new / learning / mastered statuses
 
 Acceptance check:
-- At least 2 sample decks exist with cards.
+- At least 2 sample decks exist in the database with cards and review logs.
 
 ## Task 3: Build AppHeader
 
@@ -36,18 +36,18 @@ Acceptance check:
 
 ## Task 5: Build DeckCard
 
-- Show deck title
-- Show deck description
-- Show card count (derived from cards)
-- Show mastery % (derived from cards)
+- Show deck title (`tieu_de`)
+- Show card count (derived from `the_tu_vung`)
+- Show mastery % (derived from `lich_su_on_the`)
 - Show "Open Deck" button
 
 Acceptance check:
 - Each deck card shows all required info.
 
-## Task 6: Build DeckList with filtering
+## Task 6: Build DeckList with data fetching + filtering
 
-- Render list of DeckCard
+- Query `bo_the_tu_vung` for current user's decks
+- Compute cardCount, mastery %, and due/mastered status per deck
 - Apply filter based on selected filter option
 - Handle empty state when no decks match filter
 
@@ -61,15 +61,7 @@ Acceptance check:
 Acceptance check:
 - Clicking Open Deck navigates to Deck Detail.
 
-## Task 8: Add localStorage persistence
-
-- Load decks and cards from localStorage
-- Save data after changes
-
-Acceptance check:
-- Data remains after page reload.
-
-## Task 9: Final acceptance test
+## Task 8: Final acceptance test
 
 - Check all acceptance criteria
 - Fix small UI issues
