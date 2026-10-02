@@ -105,7 +105,8 @@ beepoly/
 │   └── hooks/             # Custom React hooks
 │
 ├── specs/                 # Tài liệu specs
-├── beepoly.sql            # Database schema
+├── beepoly.sql            # PostgreSQL schema (chạy được trong Supabase SQL Editor)
+├── beepoly.dbml           # DBML export cho dbdiagram.io (diagram trực quan)
 └── beepoly_functional_analysis.md  # Phân tích chức năng hệ thống
 ```
 

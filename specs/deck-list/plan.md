@@ -1,58 +1,292 @@
-# Implementation Plan
+# Implementation Plan — Deck List
 
-## Tech Stack
+> Authoritative source: `deck-list-screen-specification.md` (§0.2, §4–§8, §12–§14, §15). This file describes *how to build* that spec for the classroom prototype — it does not restate or override it.
 
-- React
-- Vite
-- CSS
-- Supabase (PostgreSQL)
-- React Router
+## 1. Tech Stack
 
-## Components
+| Layer | Choice |
+|---|---|
+| Framework | React 18+ with TypeScript |
+| Build tool | Vite |
+| Styling | Tailwind CSS |
+| UI primitives | shadcn/ui (for dialog, tabs, button, etc.) |
+| Icons | Lucide (single icon source; no mixed icon libraries) |
+| Routing | React Router |
+| Data source | **Local mock data only** — no Supabase client, no backend, no API, no auth |
 
-1. App
-2. AppHeader (title "My Vocabulary" + Create new deck button)
-3. FilterBar
-4. DeckList
-5. DeckCard
+**Explicitly excluded** (spec §15): Supabase client wiring, database reads/writes, authentication, network calls, real spaced-repetition logic. All of this is full-MVP-only; the prototype renders from in-memory mock rows.
 
-## State Design
+## 2. Components
 
-decks: Deck[]
+### 2.1 Used on this screen (spec §13.1)
 
-Each deck has:
-- id
-- title (tieu_de)
-- userId (nguoi_dung_id)
-- createdAt (ngay_tao)
+| Component | Purpose |
+|---|---|
+| `AppHeader` | `My Vocabulary` title, subtitle `Your decks, organized and ready to review`, `+ Create new deck` button |
+| `SearchBar` | Client-side search on `tieu_de`; placeholder `Search decks…`; trailing clear icon when non-empty |
+| `FilterBar` | Status tabs `All` / `Due for review` / `Mastered` — segmented control / tab bar, not a dropdown |
+| `DeckList` | Responsive grid container (3/2/1 columns) that receives the current page of decks |
+| `DeckCard` | One deck tile — cover icon, title, created date, card count, mastery bar + %, `Open Deck` CTA |
+| `EmptyState` | All three variants: 0 decks / filter yields 0 / search yields 0 — each with its own reset action |
+| `LoadingSkeleton` | Header, toolbar, and 6 card skeletons on first mount |
+| `Pagination` | `‹` / numbered pages / `›` plus `Showing X–Y of Z decks` status line |
+| `CreateDeckDialog` | Placeholder create-deck form shell (title input, cancel, disabled/`Coming soon` submit) |
 
-Derived in component (computed via queries):
-- cardCount
-- masteryPercent
-- hasDueCards
-- isFullyMastered
+### 2.2 Not used on this screen
 
-## Data Flow
+| Component | Why |
+|---|---|
+| `FilterDropdown` | Category filter was removed — no `category` column exists in `beepoly.sql` (spec §0.3) |
+| `StatisticCard`, `FlashcardTable`, `StatusBadge` | Belong to the Deck Detail screen, not Deck List |
 
-1. App queries Supabase: `SELECT * FROM bo_the_tu_vung WHERE nguoi_dung_id = <current_user>`.
-2. For each deck, query `the_tu_vung` and `lich_su_on_the` to compute cardCount, mastery %, and due status.
-3. User clicks filter → filteredDeck list recalculates client-side (or via targeted query).
-4. User clicks "Open Deck" → navigate to Deck Detail screen (xem specs/deck-detail/).
-5. Changes to deck data (future: create/edit/delete) write back to `bo_the_tu_vung`.
+Do not import or stub these on this screen; their presence here would imply a schema field that does not exist.
 
-## Implementation Order
+### 2.3 Shared component conventions (spec §13.2)
 
-1. Create base layout for Deck List screen
-2. Set up Supabase client and seed sample data (decks + cards + review logs)
-3. Build AppHeader with title and Create button
-4. Build FilterBar
-5. Build DeckCard component
-6. Build DeckList with data fetching + filtering logic
-7. Add navigation to Deck Detail
-8. Polish UI
-9. Test acceptance checklist
+- Every component accepts `className` and forwards it to its root element.
+- **No component fetches data.** The page loads mock data once and passes everything in as props. Components stay reusable and testable.
+- Empty and loading states are **components**, not inline conditionals — each variant can be triggered and reset independently.
+- Icons come from **Lucide only**. Cover icons are chosen deterministically from deck `id` (presentation only, not a stored field — see spec §6.2).
+- Filter/search state lives in the **page component** (or a small `deckListStore`), not inside `FilterBar` or `SearchBar`. These components emit changes; they do not own them.
 
-## Testing Approach
+## 3. State Design
 
-- Manual testing against specs/deck-list/acceptance-criteria.md.
-- No automated tests required for this classroom MVP.
+### 3.1 Mock data types — mirror `beepoly.sql` exactly (spec §14.1)
+
+Define three interfaces that map 1:1 to the schema columns. No invented fields.
+
+```ts
+/** Mirrors bo_the_tu_vung. */
+interface Deck {
+  id: string;                    // bo_the_tu_vung.id
+  userId: string;                // bo_the_tu_vung.nguoi_dung_id
+  title: string | null;          // bo_the_tu_vung.tieu_de
+  sourcePdfUrl: string | null;   // bo_the_tu_vung.source_pdf_url
+  isAutoGenerated: boolean;      // bo_the_tu_vung.is_auto_generated
+  createdAt: string;             // bo_the_tu_vung.ngay_tao (ISO)
+}
+
+/** Mirrors the_tu_vung. */
+interface Flashcard {
+  id: string;                    // the_tu_vung.id
+  deckId: string;                // the_tu_vung.bo_the_id
+  word: string;                  // the_tu_vung.tu
+  meaning: string | null;        // the_tu_vung.nghia
+  example: string | null;        // the_tu_vung.vi_du
+  audioUrl: string | null;       // the_tu_vung.duong_dan_am_thanh
+}
+
+/** Mirrors lich_su_on_the. Composite PK: (userId, cardId). */
+interface ReviewLog {
+  userId: string;                // lich_su_on_the.nguoi_dung_id
+  cardId: string;                // lich_su_on_the.flashcard_id
+  easeFactor: number;            // lich_su_on_the.he_so_do_de — 1.30–3.00
+  intervalDays: number;          // lich_su_on_the.khoang_cach_ngay — >= 0
+  nextReviewAt: string | null;   // lich_su_on_the.lan_on_tiep_theo
+  wrongCount: number;            // lich_su_on_the.so_lan_sai — >= 0
+}
+```
+
+### 3.2 Derived type — `DeckWithStats`
+
+```ts
+type DeckWithStats = Deck & {
+  cardCount: number;         // count of the_tu_vung rows for this deck
+  mastery: number;           // 0–100, rounded
+  hasDueCards: boolean;
+  isFullyMastered: boolean;
+};
+```
+
+Derived values are computed, not stored — they will later be recomputed from real Supabase queries without changing the UI.
+
+### 3.3 Derivation functions (spec §14.2)
+
+```ts
+type CardStatus = "New" | "Learning" | "Mastered";
+
+function deriveStatus(log: ReviewLog | undefined): CardStatus {
+  if (!log) return "New";
+  return log.intervalDays > 21 ? "Mastered" : "Learning";
+}
+
+function deriveDeckStats(
+  deck: Deck,
+  cards: Flashcard[],
+  logs: ReviewLog[],
+  now = new Date(),
+): DeckWithStats {
+  const logByCard = new Map(logs.map((l) => [l.cardId, l]));
+  const status = cards.map((c) => deriveStatus(logByCard.get(c.id)));
+
+  const cardCount = cards.length;
+  const mastered = status.filter((s) => s === "Mastered").length;
+  const mastery = cardCount === 0 ? 0 : Math.round((mastered / cardCount) * 100);
+
+  const hasDueCards = cards.some((c, i) => {
+    if (status[i] === "New") return true;
+    if (status[i] !== "Learning") return false;
+    const log = logByCard.get(c.id);
+    return !!log?.nextReviewAt && new Date(log.nextReviewAt) <= now;
+  });
+
+  return {
+    ...deck,
+    cardCount,
+    mastery,
+    hasDueCards,
+    isFullyMastered: cardCount > 0 && mastered === cardCount,
+  };
+}
+```
+
+`deriveStatus` is shared with Deck Detail — card status is never a stored column; it is always derived from `lich_su_on_the.khoang_cach_ngay`.
+
+### 3.4 Filter state
+
+```ts
+type StatusFilter = "all" | "due" | "mastered";
+
+// Page-level state (useState, or a small deckListStore):
+// - decksWithStats: DeckWithStats[]   // computed once on mount from mock data
+// - statusFilter: StatusFilter        // default: "all"
+// - searchQuery: string               // default: ""
+// - page: number                      // default: 1, page size: 6
+```
+
+### 3.5 Filter application (spec §14.3)
+
+```ts
+function applyDeckFilters(
+  decks: DeckWithStats[],
+  status: StatusFilter,
+  query: string,
+): DeckWithStats[] {
+  const q = query.trim().toLowerCase();
+  return decks.filter((d) => {
+    if (status === "due" && !d.hasDueCards) return false;
+    if (status === "mastered" && !d.isFullyMastered) return false;
+    if (q && !(d.title ?? "").toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+```
+
+Filter predicates:
+- `all` → every deck
+- `due` → `deck.hasDueCards` (≥ 1 New card, or a Learning card whose `lan_on_tiep_theo <= now()`)
+- `mastered` → `deck.isFullyMastered` — **100% mastery required**, not majority. A 75% deck must not appear under Mastered.
+
+Search matches `tieu_de` only, case-insensitive substring, debounced ~200ms. Combined with status via AND.
+
+## 4. Data Flow (client-side, no backend)
+
+1. On page mount, the page component loads mock `Deck[]`, `Flashcard[]`, `ReviewLog[]` from a local data module (e.g. `src/data/mockDecks.ts`). There is no network call, no fetch, no Supabase client.
+2. The page runs `deriveDeckStats` for each deck against the mock cards and review logs, producing `DeckWithStats[]`.
+3. The page computes the filtered set via `applyDeckFilters(decksWithStats, statusFilter, searchQuery)`. Changing search or status recomputes client-side and **resets `page` to 1**.
+4. Pagination slices the filtered set to the current page of 6. If the filtered set is ≤ 6, hide pagination controls entirely and show the full filtered set.
+5. Clicking `Open Deck` or the card body navigates to `/decks/:deckId` via React Router.
+6. Clicking `+ Create new deck` opens `CreateDeckDialog` — a placeholder shell only. No logic, no persistence, no write to any data structure. State resets on reload.
+
+## 5. Mock Data (spec §14.4)
+
+Eight decks, all sharing `userId: "user-1"`, `sourcePdfUrl: null`, `isAutoGenerated: false`. Titles, `createdAt`, and the expected derived `cardCount` / `mastery` / `hasDueCards` values below are the source of truth for building the mock cards and review logs.
+
+| # | `id` | `tieu_de` | `ngay_tao` | `cardCount` | `mastery` | `hasDueCards` |
+|---|---|---|---|---|---|---|
+| 1 | `deck-eng-vocab` | English Vocabulary | 2026-03-14 | 120 | 75% | true |
+| 2 | `deck-java-oop` | Java OOP | 2026-04-02 | 85 | 30% | true |
+| 3 | `deck-db-sql` | Database SQL | 2026-04-18 | 60 | 10% | true |
+| 4 | `deck-biz-email` | Business Emails | 2026-05-06 | 48 | 100% | false |
+| 5 | `deck-travel-en` | Travel English | 2026-05-21 | 36 | 100% | false |
+| 6 | `deck-ielts-speaking` | IELTS Speaking | 2026-06-09 | 200 | 45% | true |
+| 7 | `deck-french-basics` | French Basics | 2026-07-03 | 80 | 60% | true |
+| 8 | `deck-machine-learning` | Machine Learning | 2026-08-15 | 95 | 85% | true |
+
+The mock `Flashcard` and `ReviewLog` arrays must be large enough that `deriveDeckStats` reproduces the `cardCount` / `mastery` / `hasDueCards` values above exactly. Cards for the fully-mastered decks (4, 5) should have review logs with `intervalDays > 21` and `nextReviewAt` in the future (or absent, since fully mastered cards are not due) — do not give them due cards.
+
+**Expected filter results** at page size 6:
+
+| Filter | Result |
+|---|---|
+| `All` | 8 decks → 2 pages |
+| `Due for review` | 6 decks → 1 page |
+| `Mastered` | 2 decks (Business Emails, Travel English) → 1 page |
+
+## 6. Design Direction (spec §12)
+
+- Modern SaaS quality bar (Linear / Vercel / Notion), clean and professional.
+- **White background**, **blue primary** (`#2563eb`-class), soft shadows, spacious layout.
+- Cards: `rounded-xl`, `border border-slate-200`, `shadow-sm` resting → `shadow-md` hover; card padding `p-5`/`p-6`.
+- 8px spacing rhythm throughout.
+- Transitions ≤150ms, opacity/transform only. No heavy animation.
+- **Avoid:** playful/cartoon aesthetics, heavy gradients, complex illustrations.
+
+Accessibility:
+- WCAG AA contrast on all text and the mastery bar.
+- Visible focus rings on cards, buttons, tabs, inputs (e.g. `ring-2 ring-blue-500 ring-offset-2` on cards).
+- Mastery percentage is always rendered as **text**, not conveyed by bar colour alone.
+- Filter tabs use `role="tablist"` / `role="tab"` with `aria-selected`.
+- Search input has an associated `<label>` (visually hidden is acceptable).
+
+## 7. Implementation Order
+
+1. **Base layout** — Vite + React + TypeScript + Tailwind + React Router scaffold; `/decks` set as the app root route; responsive grid shell.
+2. **Mock data module** — define `Deck` / `Flashcard` / `ReviewLog` types shaped exactly like `beepoly.sql`; write the 8 mock decks plus enough cards and review logs to hit the expected derived values; expose `deriveStatus`, `deriveDeckStats`, `applyDeckFilters`.
+3. **AppHeader** — title, subtitle, `+ Create new deck` button wired to open the dialog (dialog itself comes later).
+4. **SearchBar** — controlled input, `Search decks…` placeholder, clear icon, ~200ms debounce, emits query changes upward to the page.
+5. **FilterBar** — three status tabs with `role="tablist"`/`role="tab"`/`aria-selected`, selected = blue fill; emits status changes upward.
+6. **DeckCard** — cover icon (deterministic from deck id), title, `Created …` date, card count, mastery bar + text %, `Open Deck` CTA; whole card is one focusable link to `/decks/:deckId`; hover elevation + blue border; equal-height via `h-full`.
+7. **DeckList grid + pagination** — 3/2/1 responsive columns; slice filtered set to current page; `Pagination` component with status line, boundary disabled states, and hide-when-single-page behavior; reset page to 1 on any search/status change.
+8. **EmptyState variants + LoadingSkeleton** — three empty-state variants (0 decks / no filter match / no search match) each with its own reset action; loading skeleton for header, toolbar, and 6 cards using `animate-pulse` on `bg-slate-100` — not a bare spinner.
+9. **CreateDeckDialog placeholder** — title input, cancel, submit disabled or `Coming soon`; closes on Cancel/Esc; no persistence.
+10. **Navigation wiring** — confirm `Open Deck` / card body click routes to `/decks/:deckId`; Review Session is a placeholder navigation target only (no real review logic).
+11. **Responsive polish** — header stacks on mobile, toolbar stacks search→tabs, card internals reflow, pagination centers with larger tap targets (≥44×44px), body text ≥14px.
+12. **Test against acceptance criteria** — manual pass per §9 below.
+
+## 8. Routing
+
+| Route | Screen | Notes |
+|---|---|---|
+| `/decks` | Deck List (this screen) | App root route in the prototype — the app lands here directly |
+| `/decks/:deckId` | Deck Detail | Navigated to via `Open Deck` or card body click |
+| Review Session | Placeholder only | Not built as a real screen in this prototype; reachable only as a navigation target from Deck Detail |
+
+Deck Detail is specified separately in `deck-detail-screen-specification.md` — do not build its internals here, just make the navigation target resolve.
+
+## 9. Testing Approach
+
+**Manual testing against `specs/deck-list/acceptance-criteria.md`.** This is a classroom prototype — no automated tests are required.
+
+The current `acceptance-criteria.md` mixes prototype-scoped and full-MVP items. For this prototype build, verify the **prototype-scoped** criteria, specifically:
+
+- Page title reads `My Vocabulary`; subtitle renders beneath it.
+- `+ Create new deck` is visible and clickable, and opens a placeholder form only — no persistence.
+- Status filter tabs render `All` / `Due for review` / `Mastered`; default on mount is `All`.
+- Selecting a filter updates the visible deck list.
+- **`Mastered` shows only decks at 100% mastery** — the 75%-mastery decks (English Vocabulary, etc.) must not appear.
+- `Due for review` shows the 6 decks with at least one new or due card.
+- Search filters by title only; clearing search restores the full list.
+- Filter and search changes reset pagination to page 1.
+- Deck card shows only: cover icon, deck name (`tieu_de`), created date (`ngay_tao`), card count, mastery bar with percentage, and `Open Deck` button — **nothing else**. No description, category, difficulty badge, or last-studied time.
+- Mastery bar width matches the mastery percentage; percentage is present as text, not colour alone.
+- `cardCount === 0` renders `0%` rather than hiding the mastery element (edge case — not present in the 8-deck mock set, but the code path should not hide the element).
+- Clicking `Open Deck` **or** the card body navigates to Deck Detail at `/decks/:deckId`.
+- Grid is 3 columns on desktop, 2 on tablet, 1 on mobile.
+- Pagination shows `Showing X–Y of Z decks`; controls disable at the boundaries; single-page result sets hide pagination controls entirely.
+- Empty states render correctly: 0 decks → `+ Create new deck` action; filter yields 0 → `Show all decks` reset; search yields 0 → `Clear search` reset.
+- Loading skeleton renders header, toolbar, and 6 card skeletons on first mount — not a bare spinner.
+- No backend, database, API, or auth code is introduced; mock rows contain only columns defined in `beepoly.sql`; no network calls.
+
+**Not applicable to the prototype** (full-MVP criteria — skip these): data read from PostgreSQL, data persisting across reload, real spaced-repetition logic, create-deck writing to the database.
+
+## 10. Out of Scope Reminder (spec §15)
+
+- Backend, database, API, authentication — none of this is touched.
+- Create-deck form logic — UI button + placeholder form shell only.
+- Real spaced-repetition (SM-2 updates, scheduling).
+- Review Session beyond a placeholder navigation target.
+- PDF import.
+- Deck edit/delete from this screen (lives on Deck Detail).
+- Persistence — prototype state resets on reload; do not add localStorage.
+- Schema-gap fields (description, category, difficulty, last-studied time, category dropdown) — not buildable until `beepoly.sql` changes; do not stub or fake them.
