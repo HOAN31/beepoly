@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { DeckListPage } from './pages/DeckListPage';
 import { DeckDetailPage } from './pages/DeckDetailPage';
+import { ReviewSessionPage } from './pages/ReviewSessionPage';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
           <Routes>
             <Route path="/" element={<DeckListPage />} />
             <Route path="/deck/:id" element={<DeckDetailPage />} />
+            <Route path="/review/:deckId" element={<ReviewSessionPage />} />
           </Routes>
         </main>
       </div>

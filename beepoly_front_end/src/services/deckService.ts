@@ -24,7 +24,6 @@ export class DeckService {
 
       if (!dbDecks || dbDecks.length === 0) return [];
 
-      // Mapping từ schema SQL sang kiểu dữ liệu Deck UI
       const decks: Deck[] = await Promise.all(
         dbDecks.map(async (row) => {
           const { data: cards } = await client
@@ -155,6 +154,45 @@ export class DeckService {
     } catch (err) {
       console.error('Supabase insert flashcard exception:', err);
       return null;
+    }
+  }
+
+  /**
+   * Lưu kết quả đánh giá SM-2 vào bảng `lich_su_on_the`
+   */
+  static async saveReviewHistory(
+    userId: number,
+    flashcardId: number,
+    easeFactor: number,
+    interval: number,
+    nextReviewDate: Date
+  ): Promise<boolean> {
+    if (!isSupabaseConfigured || !supabase) {
+      return false;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('lich_su_on_the')
+        .upsert([
+          {
+            nguoi_dung_id: userId,
+            flashcard_id: flashcardId,
+            he_so_do_de: easeFactor,
+            khoang_cach_ngay: interval,
+            lan_on_tiep_theo: nextReviewDate.toISOString()
+          }
+        ]);
+
+      if (error) {
+        console.error('Lỗi khi lưu lịch sử ôn tập Supabase:', error);
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Supabase save review history exception:', err);
+      return false;
     }
   }
 }

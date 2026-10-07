@@ -96,7 +96,7 @@ export const DeckDetailPage: React.FC = () => {
           </button>
 
           <button
-            onClick={() => alert('Review session starting...')}
+            onClick={() => navigate(`/review/${deckId}`)}
             className="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-full text-xs font-semibold hover:bg-blue-700 shadow-md shadow-blue-600/25 transition-all"
           >
             <span>Start Review</span>
