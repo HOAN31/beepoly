@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
+import { DashboardPage } from './pages/DashboardPage';
 import { DeckListPage } from './pages/DeckListPage';
 import { DeckDetailPage } from './pages/DeckDetailPage';
 import { ReviewSessionPage } from './pages/ReviewSessionPage';
@@ -12,6 +13,7 @@ function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<DeckListPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/deck/:id" element={<DeckDetailPage />} />
             <Route path="/review/:deckId" element={<ReviewSessionPage />} />
           </Routes>
