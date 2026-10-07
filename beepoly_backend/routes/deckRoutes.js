@@ -1,264 +1,556 @@
 const express = require('express');
 const router = express.Router();
 const { supabase, isConfigured } = require('../config/db');
-
-// In-memory fallback mock data if Database API key is not configured
-let mockDecks = [
-  {
-    id: 1,
-    title: 'English Vocabulary',
-    created: 'Created Mar 14, 2026',
-    cards: 120,
-    mastered: 75,
-    theme: 'theme-blue',
-    icon: 'book',
-    complete: false,
-    stats: { total: 120, mastered: 62, learning: 28, new: 30, accuracy: '82%' }
-  },
-  {
-    id: 2,
-    title: 'Java OOP',
-    created: 'Created Apr 2, 2026',
-    cards: 85,
-    mastered: 30,
-    theme: 'theme-green',
-    icon: 'chart',
-    complete: false,
-    stats: { total: 85, mastered: 25, learning: 40, new: 20, accuracy: '65%' }
-  },
-  {
-    id: 3,
-    title: 'Database SQL',
-    created: 'Created Apr 18, 2026',
-    cards: 60,
-    mastered: 10,
-    theme: 'theme-yellow',
-    icon: 'graduation',
-    complete: false,
-    stats: { total: 60, mastered: 6, learning: 24, new: 30, accuracy: '50%' }
-  },
-  {
-    id: 4,
-    title: 'Business Emails',
-    created: 'Created May 6, 2026',
-    cards: 48,
-    mastered: 100,
-    theme: 'theme-purple',
-    icon: 'language',
-    complete: true,
-    stats: { total: 48, mastered: 48, learning: 0, new: 0, accuracy: '98%' }
-  },
-  {
-    id: 5,
-    title: 'Travel English',
-    created: 'Created May 21, 2026',
-    cards: 36,
-    mastered: 100,
-    theme: 'theme-emerald',
-    icon: 'code',
-    complete: true,
-    stats: { total: 36, mastered: 36, learning: 0, new: 0, accuracy: '95%' }
-  },
-  {
-    id: 6,
-    title: 'IELTS Speaking',
-    created: 'Created Jun 9, 2026',
-    cards: 200,
-    mastered: 45,
-    theme: 'theme-orange',
-    icon: 'sound',
-    complete: false,
-    stats: { total: 200, mastered: 90, learning: 60, new: 50, accuracy: '78%' }
-  },
-  {
-    id: 7,
-    title: 'French Basics',
-    created: 'Created Jul 3, 2026',
-    cards: 80,
-    mastered: 60,
-    theme: 'theme-blue',
-    icon: 'book',
-    complete: false,
-    stats: { total: 80, mastered: 48, learning: 20, new: 12, accuracy: '80%' }
-  },
-  {
-    id: 8,
-    title: 'Machine Learning',
-    created: 'Created Aug 15, 2026',
-    cards: 95,
-    mastered: 85,
-    theme: 'theme-green',
-    icon: 'chart',
-    complete: false,
-    stats: { total: 95, mastered: 80, learning: 10, new: 5, accuracy: '92%' }
-  }
-];
-
-let mockFlashcards = [
-  { id: 1, deckId: 1, question: 'accommodate', answer: 'thích nghi, cung cấp đủ chỗ', status: 'Learning' },
-  { id: 2, deckId: 1, question: 'mitigate', answer: 'giảm nhẹ, làm giảm tác hại', status: 'New' },
-  { id: 3, deckId: 1, question: 'resilient', answer: 'kiên cường, có khả năng phục hồi', status: 'Mastered' },
-  { id: 4, deckId: 1, question: 'prerequisite', answer: 'điều kiện tiên quyết', status: 'Learning' },
-  { id: 5, deckId: 1, question: 'coherent', answer: 'mạch lạc, chặt chẽ', status: 'Mastered' },
-  { id: 6, deckId: 1, question: 'proficient', answer: 'thành thạo, có năng lực', status: 'New' },
-  { id: 7, deckId: 1, question: 'substantial', answer: 'đáng kể, quan trọng', status: 'Learning' },
-  { id: 8, deckId: 1, question: 'consecutive', answer: 'liên tiếp', status: 'Mastered' },
-  { id: 9, deckId: 1, question: 'ambiguous', answer: 'mơ hồ, không rõ nghĩa', status: 'New' },
-  { id: 10, deckId: 1, question: 'comprehensive', answer: 'toàn diện, bao quát', status: 'Learning' }
-];
+const { 
+  mockDecks, 
+  mockCards, 
+  mockReviewLogs, 
+  deriveCardStatus, 
+  deriveDeckStats 
+} = require('../services/deckService');
 
 /**
- * GET /api/decks
- * Lấy toàn bộ bộ thẻ từ vựng (từ bảng bo_the_tu_vung hoặc mock data)
+ * Helper to fetch database or mock data
+ */
+async function getDecksAndCards() {
+  if (isConfigured && supabase) {
+    try {
+      const { data: decks, error: e1 } = await supabase.from('bo_the_tu_vung').select('*').order('ngay_tao', { ascending: false });
+      const { data: cards, error: e2 } = await supabase.from('the_tu_vung').select('*');
+      const { data: logs, error: e3 } = await supabase.from('lich_su_on_the').select('*');
+
+      if (!e1 && !e2 && !e3) {
+        const finalDecks = (decks && decks.length > 0) ? decks : mockDecks;
+        const finalCards = (cards && cards.length > 0) ? cards : mockCards;
+        const finalLogs = (logs && logs.length > 0) ? logs : mockReviewLogs;
+        return { decks: finalDecks, cards: finalCards, logs: finalLogs, isDb: (decks && decks.length > 0) };
+      }
+    } catch (err) {
+      console.error('Database query fallback to mock:', err);
+    }
+  }
+  return { decks: mockDecks, cards: mockCards, logs: mockReviewLogs, isDb: false };
+}
+
+/**
+ * 1. GET /api/decks
+ * Specs: Screen 01 Deck List
+ * Query Params: filter (all|due|mastered), search (string), page (number), limit (number)
  */
 router.get('/decks', async (req, res) => {
-  if (isConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('bo_the_tu_vung')
-        .select('*')
-        .order('ngay_tao', { ascending: false });
+  try {
+    const { filter = 'all', search = '', page = 1, limit = 6 } = req.query;
+    const { decks, cards, logs, isDb } = await getDecksAndCards();
 
-      if (error) throw error;
-      return res.json({ success: true, source: 'database', data });
-    } catch (err) {
-      console.error('Error fetching decks from database:', err);
+    // Map derived stats for each deck
+    let processedDecks = decks.map(deck => {
+      const stats = deriveDeckStats(deck.id, cards, logs);
+      const dateObj = new Date(deck.ngay_tao);
+      const formattedDate = `Created ${dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+      return {
+        id: deck.id,
+        userId: deck.nguoi_dung_id || 1,
+        title: deck.tieu_de || 'Untitled deck',
+        sourcePdfUrl: deck.source_pdf_url,
+        isAutoGenerated: deck.is_auto_generated || false,
+        createdAt: deck.ngay_tao,
+        createdFormatted: formattedDate,
+        // Derived fields
+        cardCount: stats.total,
+        mastery: stats.mastery,
+        hasDueCards: stats.hasDueCards,
+        isFullyMastered: stats.isFullyMastered,
+        stats: {
+          total: stats.total,
+          mastered: stats.mastered,
+          learning: stats.learning,
+          new: stats.new,
+          accuracy: stats.accuracy
+        }
+      };
+    });
+
+    // Apply Title Search Filter (case-insensitive)
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      processedDecks = processedDecks.filter(d => d.title.toLowerCase().includes(q));
     }
-  }
 
-  res.json({ success: true, source: 'mock', data: mockDecks });
+    // Apply Status Filter (all | due | mastered)
+    if (filter === 'due') {
+      processedDecks = processedDecks.filter(d => d.hasDueCards);
+    } else if (filter === 'mastered') {
+      processedDecks = processedDecks.filter(d => d.isFullyMastered);
+    }
+
+    // Pagination
+    const totalItems = processedDecks.length;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 6);
+    const totalPages = Math.ceil(totalItems / limitNum) || 1;
+    const startIndex = (pageNum - 1) * limitNum;
+    const paginatedDecks = processedDecks.slice(startIndex, startIndex + limitNum);
+
+    res.json({
+      success: true,
+      source: isDb ? 'database' : 'mock',
+      total: totalItems,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
+      data: paginatedDecks
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 /**
- * POST /api/decks
- * Tạo mới một bộ thẻ từ vựng
+ * 2. GET /api/decks/:id
+ * Specs: Screen 02 Deck Detail
+ */
+router.get('/decks/:id', async (req, res) => {
+  try {
+    const deckId = Number(req.params.id);
+    const { decks, cards, logs, isDb } = await getDecksAndCards();
+
+    const deck = decks.find(d => Number(d.id) === deckId);
+    if (!deck) {
+      return res.status(404).json({ success: false, message: 'Deck not found' });
+    }
+
+    const stats = deriveDeckStats(deckId, cards, logs);
+    const dateObj = new Date(deck.ngay_tao);
+    const formattedDate = `Created ${dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+    res.json({
+      success: true,
+      source: isDb ? 'database' : 'mock',
+      data: {
+        id: deck.id,
+        userId: deck.nguoi_dung_id || 1,
+        title: deck.tieu_de || 'Untitled deck',
+        sourcePdfUrl: deck.source_pdf_url,
+        isAutoGenerated: deck.is_auto_generated || false,
+        createdAt: deck.ngay_tao,
+        createdFormatted: formattedDate,
+        stats: {
+          total: stats.total,
+          mastered: stats.mastered,
+          learning: stats.learning,
+          new: stats.new,
+          accuracy: stats.accuracy,
+          estimatedTimeSeconds: stats.estimatedTimeSeconds,
+          masteryPercent: stats.mastery
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * 3. POST /api/decks
+ * Specs: Create Deck (tieu_de only)
  */
 router.post('/decks', async (req, res) => {
-  const { title, theme } = req.body;
-  if (!title) {
-    return res.status(400).json({ success: false, message: 'Title is required' });
-  }
-
-  if (isConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('bo_the_tu_vung')
-        .insert([{ tieu_de: title, nguoi_dung_id: 1 }])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return res.status(201).json({ success: true, source: 'database', data });
-    } catch (err) {
-      console.error('Error creating deck in database:', err);
+  try {
+    const { title } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Deck title (tieu_de) is required and cannot be empty' });
     }
+
+    const trimmedTitle = title.trim();
+
+    if (isConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('bo_the_tu_vung')
+          .insert([{ tieu_de: trimmedTitle, nguoi_dung_id: 1 }])
+          .select()
+          .single();
+
+        if (!error && data) {
+          return res.status(201).json({ success: true, source: 'database', data });
+        }
+      } catch (err) {
+        console.error('Supabase deck creation failed, falling back to mock:', err);
+      }
+    }
+
+    const newDeck = {
+      id: Date.now(),
+      nguoi_dung_id: 1,
+      tieu_de: trimmedTitle,
+      source_pdf_url: null,
+      is_auto_generated: false,
+      ngay_tao: new Date().toISOString()
+    };
+
+    mockDecks.unshift(newDeck);
+    res.status(201).json({ success: true, source: 'mock', data: newDeck });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
-
-  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const newDeck = {
-    id: Date.now(),
-    title,
-    created: `Created ${dateStr}`,
-    cards: 0,
-    mastered: 0,
-    theme: theme || 'theme-blue',
-    icon: 'book',
-    complete: false,
-    stats: { total: 0, mastered: 0, learning: 0, new: 0, accuracy: '0%' }
-  };
-
-  mockDecks.unshift(newDeck);
-  res.status(201).json({ success: true, source: 'mock', data: newDeck });
 });
 
 /**
- * DELETE /api/decks/:id
- * Xóa một bộ thẻ từ vựng
+ * 4. PUT /api/decks/:id
+ * Specs: Update Deck Title (tieu_de)
+ */
+router.put('/decks/:id', async (req, res) => {
+  try {
+    const deckId = Number(req.params.id);
+    const { title } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Deck title cannot be empty' });
+    }
+
+    const trimmedTitle = title.trim();
+
+    if (isConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('bo_the_tu_vung')
+          .update({ tieu_de: trimmedTitle })
+          .eq('id', deckId)
+          .select()
+          .single();
+
+        if (!error && data) {
+          return res.json({ success: true, source: 'database', data });
+        }
+      } catch (err) {
+        console.error('Supabase deck update failed:', err);
+      }
+    }
+
+    const index = mockDecks.findIndex(d => Number(d.id) === deckId);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: 'Deck not found' });
+    }
+
+    mockDecks[index].tieu_de = trimmedTitle;
+    res.json({ success: true, source: 'mock', data: mockDecks[index] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * 5. DELETE /api/decks/:id
+ * Specs: Delete Deck & Cascade Cards
  */
 router.delete('/decks/:id', async (req, res) => {
-  const deckId = Number(req.params.id);
+  try {
+    const deckId = Number(req.params.id);
 
-  if (isConfigured && supabase) {
-    try {
-      const { error } = await supabase
-        .from('bo_the_tu_vung')
-        .delete()
-        .eq('id', deckId);
+    if (isConfigured && supabase) {
+      try {
+        const { error } = await supabase
+          .from('bo_the_tu_vung')
+          .delete()
+          .eq('id', deckId);
 
-      if (error) throw error;
-      return res.json({ success: true, message: 'Deck deleted from database' });
-    } catch (err) {
-      console.error('Error deleting deck from database:', err);
+        if (!error) {
+          return res.json({ success: true, source: 'database', message: 'Deck deleted successfully' });
+        }
+      } catch (err) {
+        console.error('Supabase deck delete failed:', err);
+      }
     }
-  }
 
-  mockDecks = mockDecks.filter(d => d.id !== deckId);
-  mockFlashcards = mockFlashcards.filter(f => f.deckId !== deckId);
-  res.json({ success: true, message: 'Deck deleted from mock store' });
+    const initialLength = mockDecks.length;
+    const remainingDecks = mockDecks.filter(d => Number(d.id) !== deckId);
+
+    if (remainingDecks.length === initialLength) {
+      return res.status(404).json({ success: false, message: 'Deck not found' });
+    }
+
+    // Replace array contents
+    mockDecks.length = 0;
+    mockDecks.push(...remainingDecks);
+
+    res.json({ success: true, source: 'mock', message: 'Deck deleted successfully from mock store' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 /**
- * GET /api/decks/:deckId/cards
- * Lấy danh sách thẻ từ vựng thuộc về bộ thẻ (bảng the_tu_vung)
+ * 6. GET /api/decks/:deckId/cards
+ * Specs: Fetch Cards in Deck with Search & Status Filter
  */
 router.get('/decks/:deckId/cards', async (req, res) => {
-  const deckId = Number(req.params.deckId);
+  try {
+    const deckId = Number(req.params.deckId);
+    const { search = '', status = 'all', page = 1, limit = 10 } = req.query;
+    const { cards, logs, isDb } = await getDecksAndCards();
 
-  if (isConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('the_tu_vung')
-        .select('*')
-        .eq('bo_the_id', deckId);
+    let deckCards = cards.filter(c => Number(c.bo_the_id) === deckId);
 
-      if (error) throw error;
-      return res.json({ success: true, source: 'database', data });
-    } catch (err) {
-      console.error('Error fetching cards from database:', err);
+    // Map card with derived status
+    let processedCards = deckCards.map(c => {
+      const cardStatus = deriveCardStatus(c.id, logs);
+      return {
+        id: c.id,
+        deckId: c.bo_the_id,
+        word: c.tu,
+        meaning: c.nghia,
+        example: c.vi_du || null,
+        audioUrl: c.duong_dan_am_thanh || null,
+        createdAt: c.ngay_tao,
+        status: cardStatus // 'New' | 'Learning' | 'Mastered'
+      };
+    });
+
+    // Search filter (word or meaning)
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      processedCards = processedCards.filter(c => 
+        (c.word && c.word.toLowerCase().includes(q)) || 
+        (c.meaning && c.meaning.toLowerCase().includes(q))
+      );
     }
-  }
 
-  const cards = mockFlashcards.filter(f => f.deckId === deckId);
-  res.json({ success: true, source: 'mock', data: cards });
+    // Status filter
+    if (status !== 'all') {
+      processedCards = processedCards.filter(c => c.status.toLowerCase() === status.toLowerCase());
+    }
+
+    // Pagination
+    const totalItems = processedCards.length;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+    const totalPages = Math.ceil(totalItems / limitNum) || 1;
+    const startIndex = (pageNum - 1) * limitNum;
+    const paginatedCards = processedCards.slice(startIndex, startIndex + limitNum);
+
+    res.json({
+      success: true,
+      source: isDb ? 'database' : 'mock',
+      total: totalItems,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
+      data: paginatedCards
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 /**
- * POST /api/decks/:deckId/cards
- * Thêm một thẻ từ vựng mới vào bộ thẻ
+ * 7. POST /api/decks/:deckId/cards
+ * Specs: Add Card to Deck (check_the_tu_vung_tu_khong_trang constraint)
  */
 router.post('/decks/:deckId/cards', async (req, res) => {
-  const deckId = Number(req.params.deckId);
-  const { question, answer, status } = req.body;
+  try {
+    const deckId = Number(req.params.deckId);
+    const { word, meaning, example, audioUrl } = req.body;
 
-  if (!question || !answer) {
-    return res.status(400).json({ success: false, message: 'Question and answer are required' });
-  }
-
-  if (isConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('the_tu_vung')
-        .insert([{ bo_the_id: deckId, tu: question, nghia: answer }])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return res.status(201).json({ success: true, source: 'database', data });
-    } catch (err) {
-      console.error('Error creating card in database:', err);
+    if (!word || !word.trim()) {
+      return res.status(400).json({ success: false, message: 'Flashcard word (tu) is required and cannot be empty' });
     }
+
+    const trimmedWord = word.trim();
+    const trimmedMeaning = meaning ? meaning.trim() : '';
+
+    if (isConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('the_tu_vung')
+          .insert([{ 
+            bo_the_id: deckId, 
+            tu: trimmedWord, 
+            nghia: trimmedMeaning,
+            vi_du: example || null,
+            duong_dan_am_thanh: audioUrl || null
+          }])
+          .select()
+          .single();
+
+        if (!error && data) {
+          return res.status(201).json({ success: true, source: 'database', data });
+        }
+      } catch (err) {
+        console.error('Supabase card creation failed:', err);
+      }
+    }
+
+    const newCard = {
+      id: Date.now(),
+      bo_the_id: deckId,
+      tu: trimmedWord,
+      nghia: trimmedMeaning,
+      vi_du: example || null,
+      duong_dan_am_thanh: audioUrl || null,
+      ngay_tao: new Date().toISOString()
+    };
+
+    mockCards.unshift(newCard);
+    res.status(201).json({ success: true, source: 'mock', data: newCard });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
+});
 
-  const newCard = {
-    id: Date.now(),
-    deckId,
-    question,
-    answer,
-    status: status || 'New'
-  };
+/**
+ * 8. PUT /api/cards/:cardId
+ * Specs: Update Flashcard
+ */
+router.put('/cards/:cardId', async (req, res) => {
+  try {
+    const cardId = Number(req.params.cardId);
+    const { word, meaning, example, audioUrl } = req.body;
 
-  mockFlashcards.unshift(newCard);
-  res.status(201).json({ success: true, source: 'mock', data: newCard });
+    if (isConfigured && supabase) {
+      try {
+        const updates = {};
+        if (word !== undefined) updates.tu = word.trim();
+        if (meaning !== undefined) updates.nghia = meaning.trim();
+        if (example !== undefined) updates.vi_du = example;
+        if (audioUrl !== undefined) updates.duong_dan_am_thanh = audioUrl;
+
+        const { data, error } = await supabase
+          .from('the_tu_vung')
+          .update(updates)
+          .eq('id', cardId)
+          .select()
+          .single();
+
+        if (!error && data) {
+          return res.json({ success: true, source: 'database', data });
+        }
+      } catch (err) {
+        console.error('Supabase card update failed:', err);
+      }
+    }
+
+    const index = mockCards.findIndex(c => Number(c.id) === cardId);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: 'Flashcard not found' });
+    }
+
+    if (word !== undefined) mockCards[index].tu = word.trim();
+    if (meaning !== undefined) mockCards[index].nghia = meaning.trim();
+    if (example !== undefined) mockCards[index].vi_du = example;
+    if (audioUrl !== undefined) mockCards[index].duong_dan_am_thanh = audioUrl;
+
+    res.json({ success: true, source: 'mock', data: mockCards[index] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * 9. DELETE /api/cards/:cardId
+ * Specs: Delete Flashcard
+ */
+router.delete('/cards/:cardId', async (req, res) => {
+  try {
+    const cardId = Number(req.params.cardId);
+
+    if (isConfigured && supabase) {
+      try {
+        const { error } = await supabase.from('the_tu_vung').delete().eq('id', cardId);
+        if (!error) {
+          return res.json({ success: true, source: 'database', message: 'Card deleted successfully' });
+        }
+      } catch (err) {
+        console.error('Supabase card delete failed:', err);
+      }
+    }
+
+    const initialLength = mockCards.length;
+    const remainingCards = mockCards.filter(c => Number(c.id) !== cardId);
+
+    if (remainingCards.length === initialLength) {
+      return res.status(404).json({ success: false, message: 'Flashcard not found' });
+    }
+
+    mockCards.length = 0;
+    mockCards.push(...remainingCards);
+
+    res.json({ success: true, source: 'mock', message: 'Card deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * 10. POST /api/review-logs
+ * Specs: Record Spaced Repetition (SM-2) Review Log
+ */
+router.post('/review-logs', async (req, res) => {
+  try {
+    const { cardId, rating } = req.body; // rating: 'again' | 'hard' | 'good' | 'easy'
+    if (!cardId || !rating) {
+      return res.status(400).json({ success: false, message: 'cardId and rating are required' });
+    }
+
+    const existingLog = mockReviewLogs.find(l => Number(l.flashcard_id) === Number(cardId));
+    let easeFactor = existingLog ? Number(existingLog.he_so_do_de) : 2.5;
+    let intervalDays = existingLog ? Number(existingLog.khoang_cach_ngay) : 0;
+    let wrongCount = existingLog ? Number(existingLog.so_lan_sai) : 0;
+
+    // SM-2 Algorithm Calculation
+    if (rating === 'again') {
+      intervalDays = 1;
+      easeFactor = Math.max(1.3, easeFactor - 0.2);
+      wrongCount += 1;
+    } else if (rating === 'hard') {
+      intervalDays = intervalDays === 0 ? 1 : Math.round(intervalDays * 1.2);
+      easeFactor = Math.max(1.3, easeFactor - 0.15);
+    } else if (rating === 'good') {
+      intervalDays = intervalDays === 0 ? 1 : intervalDays === 1 ? 6 : Math.round(intervalDays * easeFactor);
+    } else if (rating === 'easy') {
+      intervalDays = intervalDays === 0 ? 4 : Math.round(intervalDays * easeFactor * 1.3);
+      easeFactor = Math.min(3.0, easeFactor + 0.15);
+    }
+
+    const nextReview = new Date();
+    nextReview.setDate(nextReview.getDate() + intervalDays);
+
+    const updatedLog = {
+      nguoi_dung_id: 1,
+      flashcard_id: Number(cardId),
+      he_so_do_de: parseFloat(easeFactor.toFixed(2)),
+      khoang_cach_ngay: intervalDays,
+      lan_on_tiep_theo: nextReview.toISOString(),
+      so_lan_sai: wrongCount
+    };
+
+    if (isConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('lich_su_on_the')
+          .upsert(updatedLog)
+          .select()
+          .single();
+
+        if (!error && data) {
+          return res.status(200).json({ success: true, source: 'database', data });
+        }
+      } catch (err) {
+        console.error('Supabase review log upsert failed:', err);
+      }
+    }
+
+    const idx = mockReviewLogs.findIndex(l => Number(l.flashcard_id) === Number(cardId));
+    if (idx !== -1) {
+      mockReviewLogs[idx] = updatedLog;
+    } else {
+      mockReviewLogs.push(updatedLog);
+    }
+
+    res.status(200).json({ success: true, source: 'mock', data: updatedLog });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 module.exports = router;
