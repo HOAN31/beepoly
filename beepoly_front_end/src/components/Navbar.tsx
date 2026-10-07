@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, LayoutDashboard, Layers } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Layers, Sparkles, GraduationCap, Users } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
@@ -38,6 +38,42 @@ export const Navbar: React.FC = () => {
           >
             <Layers className="w-4 h-4" />
             <span>My Vocabulary</span>
+          </Link>
+
+          <Link
+            to="/exam-practice"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              location.pathname === '/exam-practice'
+                ? 'bg-blue-50 text-blue-600'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>Exam Simulator</span>
+          </Link>
+
+          <Link
+            to="/classroom"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              location.pathname === '/classroom'
+                ? 'bg-blue-50 text-blue-600'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Classroom</span>
+          </Link>
+
+          <Link
+            to="/ai-assistant"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              location.pathname === '/ai-assistant'
+                ? 'bg-purple-50 text-purple-700 font-bold ring-1 ring-purple-200'
+                : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-purple-600" />
+            <span>AI Assistant</span>
           </Link>
         </nav>
       </div>
