@@ -7,6 +7,7 @@ import { ReviewSessionPage } from './pages/ReviewSessionPage';
 import { AIAssistantPage } from './pages/AIAssistantPage';
 import { ExamPracticePage } from './pages/ExamPracticePage';
 import { ClassroomPage } from './pages/ClassroomPage';
+import { LoginPage } from './pages/LoginPage';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
             <Route path="/ai-assistant" element={<AIAssistantPage />} />
             <Route path="/exam-practice" element={<ExamPracticePage />} />
             <Route path="/classroom" element={<ClassroomPage />} />
+            <Route path="/login" element={<LoginPage />} />
           </Routes>
         </main>
       </div>
